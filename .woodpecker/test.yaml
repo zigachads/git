@@ -1,0 +1,9 @@
+steps:
+  - name: zig
+    image: ziglings/ziglang:latest
+    pull: true
+    commands:
+        - zig build test
+    when:
+      - event: [push]
+
