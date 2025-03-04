@@ -600,8 +600,11 @@ pub const Session = struct {
     location: Location,
     supports_agent: bool,
     supports_shallow: bool,
+    supports_filter: bool,
     object_format: Oid.Format,
     allocator: Allocator,
+
+    filter: ?[]const u8 = null,
 
     const agent = "zig/" ++ @import("builtin").zig_version_string;
     const agent_capability = std.fmt.comptimePrint("agent={s}\n", .{agent});
@@ -619,6 +622,7 @@ pub const Session = struct {
             .location = try .init(allocator, uri),
             .supports_agent = false,
             .supports_shallow = false,
+            .supports_filter = false,
             .object_format = .sha1,
             .allocator = allocator,
         };
@@ -639,6 +643,8 @@ pub const Session = struct {
                 if (std.meta.stringToEnum(Oid.Format, capability.value orelse continue)) |format| {
                     session.object_format = format;
                 }
+            } else if (mem.eql(u8, capability.key, "filter")) {
+                session.supports_filter = true;
             }
         }
         return session;
@@ -944,9 +950,19 @@ pub const Session = struct {
         try Packet.write(.{ .data = "ofs-delta\n" }, body_writer);
         // We do not currently convey server progress information to the user
         try Packet.write(.{ .data = "no-progress\n" }, body_writer);
+
         if (session.supports_shallow) {
             try Packet.write(.{ .data = "deepen 1\n" }, body_writer);
         }
+
+        if (session.supports_filter) {
+            if (session.filter) |filter_value| {
+                const filter_packet = try std.fmt.allocPrint(session.allocator, "filter {s}\n", .{filter_value});
+                defer session.allocator.free(filter_packet);
+                try Packet.write(.{ .data = filter_packet }, body_writer);
+            }
+        }
+
         for (wants) |want| {
             var buf: [Packet.max_data_length]u8 = undefined;
             const arg = std.fmt.bufPrint(&buf, "want {s}\n", .{want}) catch unreachable;
