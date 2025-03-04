@@ -1,5 +1,5 @@
 .{
-    .name = "git",
+    .name = .git,
     .version = "0.0.1",
     .dependencies = .{},
     .paths = .{
@@ -7,4 +7,5 @@
         "build.zig.zon",
         "src",
     },
+    .fingerprint = 0x518e617c899fd858,
 }
